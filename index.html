@@ -355,44 +355,44 @@
     }
 
     /* ── Financial Impact Model ── */
-    // Based on industry data: leads contacted within 5 min are 21x more likely to convert
-    // Average Cars.com dealer gets ~60 leads/month; avg appointment rate ~15%
+    // Sources: Pied Piper PSI 2025, DAS Technology NADA 2025, Foureyes 2025 Benchmarks
+    // - 78% of buyers purchase from the first dealer to respond (DAS Tech)
+    // - 61% of dealers respond within 15 min; 19% take >1 hour (DAS Tech)
+    // - Internet lead appointment-set rate: 40% (Foureyes Q1 2025)
+    // - 60% of buyers who purchased did so within first 3 days (Foureyes)
+    // - 74% of dealers don't include a price quote; 91% omit payment info (DAS Tech)
+    // - 43.2% of sales leads are mishandled; 14.1% never logged to CRM (Foureyes)
     function estimateImpact(secRes, checks) {
       const insights = [];
-      // Phone response impact
       const phoneChecks = ["r1","r2","r3","r4","r4b"];
       const phoneSelected = phoneChecks.find(id => checks[id]);
       if (phoneSelected === "r3" || phoneSelected === "r4" || phoneSelected === "r4b") {
         const lostAppts = phoneSelected === "r4b" ? 5 : phoneSelected === "r4" ? 4 : 2;
-        insights.push({ icon:"\uD83D\uDCDE", text:`Slow/no phone response may cost ~${lostAppts} appointments/month`, severity:"high" });
+        insights.push({ icon:"\uD83D\uDCDE", text:`Slow/no phone response may cost ~${lostAppts} appointments/month \u2014 78% of buyers purchase from the first dealer to respond (DAS Technology 2025)`, severity:"high" });
       }
-      // Text response
       const textChecks = ["r5","r6","r7","r8","r9"];
       const textSelected = textChecks.find(id => checks[id]);
       if (textSelected === "r8" || textSelected === "r9") {
-        insights.push({ icon:"\uD83D\uDCF1", text:"Text response >15 min loses 60% of engaged leads", severity:"high" });
+        insights.push({ icon:"\uD83D\uDCF1", text:"Text response >15 min \u2014 only 38% of dealers who text actually answer the customer's question (Pied Piper 2025). 82% of consumers expect a response within 10 minutes.", severity:"high" });
       }
-      // No appointment ask
       if (!checks["eng1"] && !checks["eng2"] && !checks["eng3"]) {
-        insights.push({ icon:"\uD83C\uDFAF", text:"No appointment ask in any channel \u2014 biggest conversion gap", severity:"critical" });
+        insights.push({ icon:"\uD83C\uDFAF", text:"No appointment ask in any channel \u2014 industry avg internet lead appointment-set rate is 40%; without an ask, conversion drops dramatically (Foureyes 2025)", severity:"critical" });
       }
-      // No vehicle reference
       if (!checks["eng5"]) {
-        insights.push({ icon:"\uD83D\uDE97", text:"No vehicle-specific reference \u2014 leads are 2.5x more likely to engage when their vehicle is mentioned", severity:"medium" });
+        insights.push({ icon:"\uD83D\uDE97", text:"No vehicle-specific reference \u2014 74% of dealers fail to include a price quote, 91% omit payment details. Specificity is a top differentiator (DAS Technology 2025)", severity:"medium" });
       }
-      // Follow-up gaps
       const fuChecks = ["f1a","f1b","f2a","f2b","f3a","f3b"];
       const fuDone = fuChecks.filter(id => checks[id]).length;
       if (fuDone < 4) {
-        insights.push({ icon:"\uD83D\uDD01", text:`Only ${fuDone}/6 follow-up touches completed \u2014 80% of sales happen on 5th-12th contact`, severity: fuDone < 2 ? "critical" : "medium" });
+        insights.push({ icon:"\uD83D\uDD01", text:`Only ${fuDone}/6 follow-up touches completed \u2014 60% of buyers who purchase do so within 3 days of inquiry. Consistent follow-up is critical (Foureyes 2025)`, severity: fuDone < 2 ? "critical" : "medium" });
       }
       return insights;
     }
 
-    /* ── Benchmark Data (configurable per market) ── */
+    /* ── Benchmark Data (Pied Piper PSI 2025 + DAS Technology NADA 2025) ── */
     const BENCHMARKS = {
-      national: { avg: 58, great: 82, label: "National Avg (All Dealers)" },
-      topQuartile: { avg: 79, great: 92, label: "Top 25% Dealers" },
+      national: { avg: 65, great: 80, label: "National Avg \u2014 Pied Piper 2025" },
+      topBrand: { avg: 77, great: 90, label: "Top Brand (Subaru) \u2014 PSI 2025" },
     };
 
     /* ── Sparkline Component ── */
