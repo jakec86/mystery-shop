@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://unpkg.com 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' data: blob:;">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://unpkg.com https://cdnjs.cloudflare.com 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' data: blob:;">
   <title>Cars.com - Mystery Shop Evaluation</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -11,6 +11,7 @@
   <script crossorigin src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone@7.26.9/babel.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.2/html2pdf.bundle.min.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; }
     body {
@@ -710,59 +711,195 @@
       const gaps = useMemo(() => allCriteria.filter(c => c.earned < c.pts && c.pts > 0).sort((a,b) => (b.pts-b.earned)-(a.pts-a.earned)).slice(0,8), [allCriteria]);
       const strengths = useMemo(() => allCriteria.filter(c => c.earned===c.pts && c.pts>0), [allCriteria]);
 
-      /* ── Download Report ── */
+      /* ── Download PDF Report ── */
       const download = useCallback(() => {
         const si = (s) => escapeHtml(s);
         const sn = escapeHtml(notes);
+        const impacts = estimateImpact(secRes, checks);
 
-        const scorecardRows = secRes.map(s => { const rt=getRating(s.pct); return `<tr><td style="padding:10px;border-bottom:1px solid #eee;font-weight:600;">${si(s.label)}</td><td style="padding:10px;text-align:center;">${s.pct}%</td><td style="padding:10px;text-align:center;">${s.earned}/${s.maxPts}</td><td style="padding:10px;font-weight:bold;color:${rt.color};text-align:center;">${rt.icon} ${rt.label}</td></tr>`; }).join("");
+        // SVG ring for PDF (inline, no animation)
+        const ringSize=120, ringR=50, ringCirc=2*Math.PI*ringR, ringOff=ringCirc-(overallPct/100)*ringCirc;
+        const ringSvg = `<svg width="${ringSize}" height="${ringSize}" viewBox="0 0 ${ringSize} ${ringSize}"><circle cx="60" cy="60" r="${ringR}" fill="none" stroke="#E0E4E3" stroke-width="12"/><circle cx="60" cy="60" r="${ringR}" fill="none" stroke="${overallRt.color}" stroke-width="12" stroke-dasharray="${ringCirc}" stroke-dashoffset="${ringOff}" stroke-linecap="round" transform="rotate(-90 60 60)"/><text x="60" y="55" text-anchor="middle" fill="#141817" font-size="32" font-weight="900" font-family="DM Sans">${overallPct}</text><text x="60" y="72" text-anchor="middle" fill="#52605E" font-size="9">out of 100</text></svg>`;
 
-        const detailSections = secRes.map(s => { const rt=getRating(s.pct); const rows=s.criteria.map(c => { const e=checks[c.id]?c.pts:0; return `<tr><td style="padding:8px;border-bottom:1px solid #f0f0f0;">${si(c.label)}</td><td style="padding:8px;text-align:center;font-weight:bold;color:${e>0?'#4CB155':'#E03D2E'}">${e}/${c.pts}</td></tr>`; }).join(""); return `<div style="margin-top:24px;border:1px solid #E0E4E3;border-radius:12px;overflow:hidden;break-inside:avoid;"><div style="background:#F5EEFC;padding:12px 20px;border-bottom:2px solid #65299D;display:flex;justify-content:space-between;align-items:center;"><h3 style="margin:0;color:#141817;font-size:15px;font-family:DM Sans;">${si(s.label)}</h3><span style="font-weight:bold;color:${rt.color};">${s.pct}% (${s.earned}/${s.maxPts})</span></div><table style="width:100%;border-collapse:collapse;"><thead><tr><th style="padding:10px;text-align:left;color:#52605E;font-size:12px;background:#fafafa;">Criterion</th><th style="padding:10px;text-align:center;color:#52605E;font-size:12px;width:18%;background:#fafafa;">Result</th></tr></thead><tbody>${rows}</tbody></table></div>`; }).join("");
+        // Section bar chart SVGs
+        const barCharts = secRes.map(s => {
+          const rt = getRating(s.pct);
+          return `<div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid #f0f0f0;">
+            <span style="width:180px;font-size:12px;font-weight:600;color:#141817;">${si(s.icon||"")} ${si(s.label)}</span>
+            <div style="flex:1;height:20px;background:#E0E4E3;border-radius:10px;overflow:hidden;position:relative;">
+              <div style="width:${s.pct}%;height:100%;background:${rt.color};border-radius:10px;"></div>
+              <span style="position:absolute;right:8px;top:2px;font-size:11px;font-weight:800;color:${s.pct>40?'#fff':'#141817'}">${s.pct}%</span>
+            </div>
+            <span style="width:60px;text-align:right;font-size:11px;color:#52605E;">${s.earned}/${s.maxPts}</span>
+            <span style="width:80px;text-align:center;font-size:10px;font-weight:700;padding:3px 8px;border-radius:12px;background:${rt.bg};color:${rt.color};">${rt.icon} ${rt.label}</span>
+          </div>`;
+        }).join("");
 
-        let oppRows = gaps.map((c,i) => `<tr><td style="padding:12px;text-align:center;font-weight:bold;">${i+1}</td><td style="padding:12px;font-weight:bold;color:#E03D2E;">+${c.pts-c.earned}</td><td style="padding:12px;">${si(c.label)}</td><td style="padding:12px;color:#52605E;font-style:italic;">${si(getRec(c.id))}</td></tr>`).join("");
-        if(!oppRows) oppRows = `<tr><td colspan="4" style="padding:20px;color:#4CB155;font-weight:bold;text-align:center;">\u2713 All criteria met!</td></tr>`;
+        // Opportunity cards
+        const oppCards = gaps.slice(0,6).map((c,i) => `<div style="display:flex;gap:12px;padding:14px;background:${i%2===0?'#fff':'#F5F7F6'};border-radius:10px;margin-bottom:8px;border:1px solid #E0E4E3;">
+          <div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#9653E5,#03AEB9);color:#fff;font-size:13px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;">${i+1}</div>
+          <div style="flex:1;">
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+              <span style="font-size:13px;font-weight:700;color:#141817;">${si(c.label)}</span>
+              <span style="font-size:11px;font-weight:800;color:#E03D2E;background:#FDE8E6;padding:2px 10px;border-radius:12px;">+${c.pts-c.earned} pts</span>
+            </div>
+            <div style="font-size:11px;color:#52605E;margin-top:4px;line-height:1.5;font-style:italic;">${si(getRec(c.id))}</div>
+          </div>
+        </div>`).join("");
 
-        const attachHTML = attachments.length > 0 ? `<h2 style="color:#65299D;margin-top:40px;border-bottom:2px solid #E0E4E3;padding-bottom:8px;font-family:DM Sans;">RESPONSE ATTACHMENTS</h2><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:16px;margin-top:16px;">${attachments.map(a => a.type?.startsWith("image/") ? `<div style="border:1px solid #E0E4E3;border-radius:8px;overflow:hidden;"><img src="${a.data}" style="width:100%;display:block;" alt="${si(a.name)}"/><div style="padding:8px;font-size:11px;color:#52605E;">${si(a.name)}</div></div>` : `<div style="border:1px solid #E0E4E3;border-radius:8px;padding:16px;text-align:center;"><div style="font-size:32px;">\uD83D\uDCCE</div><div style="font-size:12px;color:#52605E;margin-top:4px;">${si(a.name)}</div></div>`).join("")}</div>` : "";
+        // Impact insights
+        const impactHTML = impacts.length > 0 ? `<div style="margin-top:24px;padding:20px;background:#FDE8E6;border-radius:12px;border-left:5px solid #E03D2E;">
+          <div style="font-size:14px;font-weight:800;color:#E03D2E;margin-bottom:12px;font-family:DM Sans;">ESTIMATED BUSINESS IMPACT</div>
+          ${impacts.map(imp => `<div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:8px;">
+            <span style="font-size:18px;">${imp.icon}</span>
+            <span style="font-size:12px;color:#3D4846;line-height:1.5;">${si(imp.text)}${imp.severity==="critical"?' <strong style="color:#E03D2E;">[CRITICAL]</strong>':''}</span>
+          </div>`).join("")}
+        </div>` : "";
 
-        const html = `<!DOCTYPE html><html><head><title>Mystery Shop - ${si(info.dealership)}</title>
-<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-<style>body{font-family:Inter,sans-serif;color:#141817;line-height:1.6;max-width:900px;margin:40px auto;padding:30px;background:#fff;}
-h1,h2,h3{font-family:'DM Sans',sans-serif;}
-h2{color:#65299D;margin-top:40px;border-bottom:2px solid #E0E4E3;padding-bottom:8px;font-size:20px;}
-table{width:100%;border-collapse:collapse;margin-top:12px;}
-th{background:#F5EEFC;color:#141817;padding:12px;text-align:left;font-size:13px;border-bottom:2px solid #9653E5;}
-.hdr{background:linear-gradient(135deg,#1a0533,#65299D);color:#fff;padding:32px;border-radius:12px 12px 0 0;}
-.hdr h1{margin:0 0 4px;font-size:26px;} .hdr p{margin:0;color:#C098EF;font-size:15px;}
-.meta{border:1px solid #E0E4E3;border-radius:0 0 12px 12px;overflow:hidden;margin-bottom:32px;}
-.meta th{background:#F5EEFC;color:#52605E;width:22%;font-size:11px;text-transform:uppercase;letter-spacing:1px;}
-.meta td{padding:12px;border-bottom:1px solid #f0f0f0;font-size:14px;}
-.banner{display:flex;align-items:center;gap:24px;background:#F5EEFC;padding:28px;border:2px solid #9653E5;border-radius:12px;margin:28px 0;break-inside:avoid;}
-.banner .num{font-size:64px;font-weight:900;font-family:'DM Sans';line-height:1;}
-.findings{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px;}
-.fbox{border:1px solid #E0E4E3;border-radius:10px;padding:20px;break-inside:avoid;}
-.fbox h4{margin-top:0;font-size:15px;} .fbox ul{margin:0;padding-left:18px;font-size:13px;color:#3D4846;} .fbox li{margin-bottom:5px;}
-.footer{margin-top:60px;font-size:11px;color:#6B7876;border-top:1px solid #E0E4E3;padding-top:16px;}
-@media print{body{max-width:100%;margin:0;padding:20px;} .banner,.findings,.fbox,table{break-inside:avoid;} h2{break-after:avoid;}}
-</style></head><body>
-<div class="hdr"><h1>Cars.com</h1><p>Mystery Shop Evaluation Report</p></div>
-<table class="meta"><tr><th>Dealership</th><td><strong>${si(info.dealership)}</strong></td></tr><tr><th>Auditor</th><td>${si(info.auditor)}</td></tr>${info.repName?`<tr><th>Sales Rep</th><td>${si(info.repName)}</td></tr>`:""}<tr><th>Shop Date</th><td>${si(info.date)}</td></tr><tr><th>Shop Type</th><td>${si(info.shopType)}</td></tr></table>
-<div class="banner"><div class="num" style="color:${overallRt.color}">${overallPct}%</div><div><h3 style="margin:0 0 4px;color:#141817;font-size:16px;text-transform:uppercase;">Overall Mystery Shop Score</h3><p style="margin:0;font-weight:bold;color:${overallRt.color};font-size:18px;">${overallRt.label} \u2014 ${totalEarned}/${totalMax} points</p><p style="margin:6px 0 0;font-size:12px;color:#52605E;">\u2265 80% Great | 50\u201379% Average | < 50% Needs Work</p></div></div>
-<h2>EXECUTIVE SUMMARY</h2><p style="font-size:14px;color:#3D4846;">${si(info.dealership)} earned a Mystery Shop Score of <strong>${overallPct}/100</strong> \u2014 placing the dealership in the <strong>${overallRt.label}</strong> tier.</p>
-<div class="findings"><div class="fbox" style="border-top:4px solid #4CB155;"><h4 style="color:#4CB155;">\u2713 Strengths</h4><ul>${strengths.map(c=>`<li>${si(c.label)}</li>`).join("")||"<li>No strengths identified.</li>"}</ul></div><div class="fbox" style="border-top:4px solid #E03D2E;"><h4 style="color:#E03D2E;">\u2717 Critical Gaps</h4><ul>${gaps.map(c=>`<li>${si(c.label)}</li>`).join("")||"<li>No gaps \u2014 excellent!</li>"}</ul></div></div>
-<h2>SCORECARD</h2><table><thead><tr><th>Category</th><th style="text-align:center">Score</th><th style="text-align:center">Points</th><th style="text-align:center">Rating</th></tr></thead><tbody>${scorecardRows}</tbody></table>
-<h2>TOP OPPORTUNITIES</h2><table><thead><tr><th style="text-align:center;width:5%">#</th><th style="width:10%">Impact</th><th style="width:38%">Area</th><th style="width:47%">Recommended Action</th></tr></thead><tbody>${oppRows}</tbody></table>
-<div style="page-break-before:always"></div><h2>SECTION DETAILS</h2>${detailSections}
-${attachHTML}
-${sn?`<h2>AUDITOR COMMENTS</h2><div style="background:#F5EEFC;padding:20px;border-left:4px solid #9653E5;border-radius:6px;break-inside:avoid;"><p style="margin:0;font-size:14px;font-style:italic;color:#3D4846;">"${sn.replace(/\n/g,"<br/>")}"</p><p style="margin:10px 0 0;font-size:12px;font-weight:bold;color:#9653E5;">\u2014 ${si(info.auditor)}</p></div>`:""}
-<div class="footer"><strong>About This Report:</strong> Prepared by Cars.com for ${si(info.dealership)}. Score reflects a single shop on ${si(info.date)}. Designed to identify process gaps and improve digital communication effectiveness.</div>
-</body></html>`;
+        // Benchmark comparison
+        const benchHTML = Object.entries(BENCHMARKS).map(([k,b]) => {
+          const diff = overallPct - b.avg;
+          const dc = diff>0?"#4CB155":diff<0?"#E03D2E":"#52605E";
+          return `<div style="flex:1;background:#F5F7F6;border-radius:10px;padding:16px;min-width:200px;">
+            <div style="font-size:10px;font-weight:700;color:#52605E;text-transform:uppercase;letter-spacing:1px;">${si(b.label)}</div>
+            <div style="margin-top:8px;display:flex;align-items:baseline;gap:6px;">
+              <span style="font-size:24px;font-weight:900;font-family:DM Sans;color:#141817;">${overallPct}%</span>
+              <span style="font-size:12px;color:#52605E;">vs ${b.avg}%</span>
+              <span style="font-size:16px;font-weight:800;color:${dc};">${diff>0?"+":""}${diff}</span>
+            </div>
+            <div style="margin-top:8px;height:6px;background:#E0E4E3;border-radius:3px;position:relative;">
+              <div style="position:absolute;left:${Math.min(b.avg,100)}%;top:-2px;width:2px;height:10px;background:#52605E;border-radius:1px;"></div>
+              <div style="width:${Math.min(overallPct,100)}%;height:100%;background:${dc};border-radius:3px;"></div>
+            </div>
+          </div>`;
+        }).join("");
 
-        const blob = new Blob([html], {type:"text/html"});
-        const u = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = u; a.download = `${info.dealership.replace(/\s+/g,"_")}_Mystery_Shop_${info.date}.html`;
-        a.click(); setTimeout(() => URL.revokeObjectURL(u), 10000);
-      }, [info, checks, notes, attachments, sections, secRes, totalEarned, totalMax, overallPct, overallRt, gaps, strengths]);
+        // Section detail cards (infographic style)
+        const detailCards = secRes.map(s => {
+          const rt = getRating(s.pct);
+          const rows = s.criteria.map(c => {
+            const e = checks[c.id]?c.pts:0;
+            const na = naItems?.[c.id];
+            return `<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f5f5f5;">
+              <span style="font-size:11px;color:#3D4846;${na?'text-decoration:line-through;opacity:0.5;':''}">${si(c.label)}</span>
+              <span style="font-size:11px;font-weight:700;color:${na?'#A3AEAC':e>0?'#4CB155':'#E03D2E'};min-width:40px;text-align:right;">${na?'N/A':`${e}/${c.pts}`}</span>
+            </div>`;
+          }).join("");
+          return `<div style="break-inside:avoid;border:1px solid #E0E4E3;border-radius:12px;overflow:hidden;margin-bottom:16px;">
+            <div style="background:linear-gradient(135deg,${rt.color}15,${rt.color}08);padding:14px 18px;display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid ${rt.color};">
+              <div style="font-size:14px;font-weight:700;color:#141817;font-family:DM Sans;">${si(s.icon||"")} ${si(s.label)}</div>
+              <div style="display:flex;align-items:center;gap:8px;">
+                <span style="font-size:18px;font-weight:900;color:${rt.color};font-family:DM Sans;">${s.pct}%</span>
+                <span style="font-size:9px;font-weight:700;padding:3px 8px;border-radius:10px;background:${rt.bg};color:${rt.color};">${rt.icon} ${rt.label}</span>
+              </div>
+            </div>
+            <div style="padding:10px 18px;">${rows}</div>
+          </div>`;
+        }).join("");
+
+        const attachHTML = attachments.length > 0 ? `<div style="page-break-before:always;"></div>
+          <div style="font-size:18px;font-weight:800;color:#65299D;font-family:DM Sans;margin-bottom:16px;padding-top:20px;">Response Attachments</div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;">
+          ${attachments.map(a => a.type?.startsWith("image/") ? `<div style="border:1px solid #E0E4E3;border-radius:10px;overflow:hidden;"><img src="${a.data}" style="width:100%;display:block;max-height:300px;object-fit:cover;" alt="${si(a.name)}"/><div style="padding:8px 12px;font-size:10px;color:#52605E;background:#F5F7F6;">${si(a.name)}</div></div>` : `<div style="border:1px solid #E0E4E3;border-radius:10px;padding:20px;text-align:center;background:#F5F7F6;"><div style="font-size:28px;">&#128206;</div><div style="font-size:11px;color:#52605E;margin-top:6px;">${si(a.name)}</div></div>`).join("")}
+          </div>` : "";
+
+        const reportHTML = `<div id="pdf-report" style="font-family:Inter,Helvetica,Arial,sans-serif;color:#141817;line-height:1.5;max-width:800px;margin:0 auto;padding:0;">
+          <!-- COVER -->
+          <div style="background:linear-gradient(160deg,#0d0118 0%,#1a0533 30%,#65299D 100%);color:#fff;padding:48px 40px;border-radius:16px;margin-bottom:32px;position:relative;overflow:hidden;">
+            <div style="position:absolute;top:0;right:0;width:300px;height:300px;background:radial-gradient(circle,rgba(150,83,229,0.3),transparent 70%);"></div>
+            <div style="position:absolute;bottom:0;left:0;width:200px;height:200px;background:radial-gradient(circle,rgba(3,174,185,0.2),transparent 70%);"></div>
+            <div style="position:relative;">
+              <div style="font-size:28px;font-weight:900;font-family:DM Sans;letter-spacing:-0.5px;">cars.com</div>
+              <div style="width:60px;height:3px;background:linear-gradient(90deg,#9653E5,#03AEB9);margin:12px 0 16px;border-radius:2px;"></div>
+              <div style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:2px;color:#C098EF;">Mystery Shop Evaluation Report</div>
+              <div style="margin-top:24px;display:flex;align-items:center;gap:24px;">
+                ${ringSvg.replace('fill="#141817"','fill="#FFFFFF"').replace('fill="#52605E"','fill="#C098EF"')}
+                <div>
+                  <div style="font-size:13px;color:#C098EF;font-weight:600;text-transform:uppercase;letter-spacing:1px;">Overall Score</div>
+                  <div style="font-size:42px;font-weight:900;font-family:DM Sans;line-height:1;margin:4px 0;">${overallPct}<span style="font-size:20px;color:#C098EF;">%</span></div>
+                  <div style="font-size:15px;font-weight:700;color:${overallRt.color};">${overallRt.icon} ${overallRt.label} &mdash; ${totalEarned}/${totalMax} pts</div>
+                </div>
+              </div>
+              <div style="margin-top:20px;display:flex;gap:24px;font-size:12px;color:#C098EF;">
+                <span><strong style="color:#fff;">${si(info.dealership)}</strong></span>
+                <span>${si(info.date)}</span>
+                <span>Auditor: ${si(info.auditor)}</span>
+                ${info.repName?`<span>Rep: ${si(info.repName)}</span>`:""}
+                <span>${si(info.shopType)}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- BENCHMARK -->
+          <div style="display:flex;gap:12px;margin-bottom:24px;flex-wrap:wrap;">${benchHTML}</div>
+
+          <!-- SCORECARD INFOGRAPHIC -->
+          <div style="background:#fff;border:1px solid #E0E4E3;border-radius:14px;padding:24px;margin-bottom:24px;">
+            <div style="font-size:16px;font-weight:800;color:#141817;font-family:DM Sans;margin-bottom:16px;">Performance Scorecard</div>
+            ${barCharts}
+          </div>
+
+          <!-- STRENGTHS / GAPS -->
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px;">
+            <div style="border:1px solid #E0E4E3;border-radius:12px;padding:20px;border-top:4px solid #4CB155;">
+              <div style="font-size:14px;font-weight:800;color:#4CB155;margin-bottom:10px;font-family:DM Sans;">&#10003; Strengths (${strengths.length})</div>
+              <ul style="margin:0;padding-left:16px;font-size:12px;color:#3D4846;">${strengths.map(c=>`<li style="margin-bottom:4px;">${si(c.label)}</li>`).join("")||"<li>None identified.</li>"}</ul>
+            </div>
+            <div style="border:1px solid #E0E4E3;border-radius:12px;padding:20px;border-top:4px solid #E03D2E;">
+              <div style="font-size:14px;font-weight:800;color:#E03D2E;margin-bottom:10px;font-family:DM Sans;">&#10007; Critical Gaps (${gaps.length})</div>
+              <ul style="margin:0;padding-left:16px;font-size:12px;color:#3D4846;">${gaps.map(c=>`<li style="margin-bottom:4px;">${si(c.label)}</li>`).join("")||"<li>No gaps &mdash; excellent!</li>"}</ul>
+            </div>
+          </div>
+
+          ${impactHTML}
+
+          <!-- OPPORTUNITIES -->
+          <div style="margin-top:24px;margin-bottom:24px;">
+            <div style="font-size:16px;font-weight:800;color:#141817;font-family:DM Sans;margin-bottom:4px;">Top Opportunities for Improvement</div>
+            <div style="font-size:11px;color:#52605E;margin-bottom:16px;">Ranked by point recovery potential with specific coaching actions</div>
+            ${oppCards || '<div style="padding:16px;color:#4CB155;font-weight:700;text-align:center;">All criteria met!</div>'}
+          </div>
+
+          <!-- SECTION DETAILS -->
+          <div style="page-break-before:always;"></div>
+          <div style="font-size:18px;font-weight:800;color:#65299D;font-family:DM Sans;margin-bottom:16px;padding-top:20px;">Section Details</div>
+          ${detailCards}
+
+          ${attachHTML}
+
+          ${sn?`<div style="margin-top:24px;background:#F5EEFC;padding:20px;border-left:4px solid #9653E5;border-radius:8px;">
+            <div style="font-size:11px;font-weight:700;color:#9653E5;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Auditor Comments &mdash; ${si(info.auditor)}</div>
+            <p style="margin:0;font-size:13px;font-style:italic;color:#3D4846;line-height:1.7;">&ldquo;${sn.replace(/\n/g,"<br/>")}&rdquo;</p>
+          </div>`:""}
+
+          <!-- FOOTER -->
+          <div style="margin-top:40px;padding-top:16px;border-top:2px solid #E0E4E3;display:flex;justify-content:space-between;align-items:center;">
+            <div style="font-size:10px;color:#6B7876;max-width:70%;line-height:1.5;">
+              <strong>About This Report:</strong> Prepared by Cars.com for ${si(info.dealership)}.
+              Score reflects a single shop on ${si(info.date)}. Designed to identify process gaps and improve digital communication effectiveness.
+            </div>
+            <div style="font-size:16px;font-weight:900;color:#65299D;font-family:DM Sans;">cars.com</div>
+          </div>
+        </div>`;
+
+        // Render hidden, then generate PDF
+        const container = document.createElement("div");
+        container.style.cssText = "position:fixed;left:-9999px;top:0;width:800px;";
+        container.innerHTML = reportHTML;
+        document.body.appendChild(container);
+
+        const el = container.querySelector("#pdf-report");
+        html2pdf().set({
+          margin: [12, 12, 12, 12],
+          filename: `${info.dealership.replace(/\s+/g,"_")}_Mystery_Shop_${info.date}.pdf`,
+          image: { type: "jpeg", quality: 0.95 },
+          html2canvas: { scale: 2, useCORS: true, letterRendering: true },
+          jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
+          pagebreak: { mode: ["css", "legacy"], avoid: ["div[style*='break-inside:avoid']"] }
+        }).from(el).save().then(() => {
+          document.body.removeChild(container);
+        });
+      }, [info, checks, notes, naItems, attachments, sections, secRes, totalEarned, totalMax, overallPct, overallRt, gaps, strengths]);
 
       return (
         <div className="fade-in">
@@ -776,11 +913,7 @@ ${sn?`<h2>AUDITOR COMMENTS</h2><div style="background:#F5EEFC;padding:20px;borde
               <button onClick={onEdit} style={{padding:"10px 18px",borderRadius:10,border:`1.5px solid ${tk.border}`,background:tk.white,color:tk.black,fontSize:12,fontWeight:600}}>&larr; Edit</button>
               <button onClick={download} style={{padding:"10px 18px",borderRadius:10,background:`linear-gradient(135deg, ${tk.accent}, ${tk.teal})`,border:"none",color:"#fff",fontSize:12,fontWeight:700,display:"flex",alignItems:"center",gap:6,boxShadow:`0 3px 12px ${tk.accent}30`}}>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                Download Report
-              </button>
-              <button onClick={() => window.print()} style={{padding:"10px 18px",borderRadius:10,border:`1.5px solid ${tk.border}`,background:tk.white,color:tk.black,fontSize:12,fontWeight:600,display:"flex",alignItems:"center",gap:5}}>
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
-                Print / PDF
+                Download PDF
               </button>
               <button onClick={onNew} style={{padding:"10px 18px",borderRadius:10,background:tk.black,border:"none",color:"#fff",fontSize:12,fontWeight:700}}>New Shop</button>
             </div>
