@@ -1,0 +1,924 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://unpkg.com 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' data: blob:;">
+  <title>Cars.com - Mystery Shop Evaluation</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script crossorigin src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.26.9/babel.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body {
+      margin: 0; padding: 0; background: #F0F2F1;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      -webkit-font-smoothing: antialiased; color: #141817;
+    }
+    h1,h2,h3,h4,h5,h6 { font-family: 'DM Sans', 'Inter', sans-serif; }
+
+    :focus-visible { outline: 3px solid #9653E5; outline-offset: 2px; }
+    button { font-family: inherit; cursor: pointer; transition: all 0.18s ease; }
+    button:hover:not(:disabled) { transform: translateY(-1px); }
+    button:active:not(:disabled) { transform: translateY(0); }
+
+    input:focus, select:focus, textarea:focus {
+      border-color: #9653E5 !important; box-shadow: 0 0 0 3px rgba(150,83,229,0.15) !important; outline: none;
+    }
+
+    /* Card system */
+    .card {
+      background: #fff; border-radius: 16px; border: 1px solid #E0E4E3;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.03);
+      transition: box-shadow 0.2s ease, transform 0.2s ease;
+    }
+    .card-interactive:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.08); transform: translateY(-2px); }
+    .card-glass {
+      background: rgba(255,255,255,0.85); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255,255,255,0.4);
+    }
+
+    /* Animations */
+    .fade-in { animation: fadeIn 0.35s ease-out; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
+    .scale-in { animation: scaleIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1); }
+    @keyframes scaleIn { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: scale(1); } }
+    @keyframes countUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    .count-up { animation: countUp 0.5s ease-out; }
+    @keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+    @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.6; } }
+
+    /* Criteria rows */
+    .criteria-row { transition: all 0.15s ease; border-radius: 12px; }
+    .criteria-row:hover { background: #F5F7F6 !important; transform: translateX(3px); }
+
+    /* Gradient accent bar */
+    .accent-gradient { background: linear-gradient(90deg, #9653E5, #03AEB9); }
+
+    /* Bento grid */
+    .bento { display: grid; gap: 16px; grid-template-columns: repeat(3, 1fr); }
+    .bento-wide { grid-column: span 2; }
+    .bento-full { grid-column: span 3; }
+    .bento-tall { grid-row: span 2; }
+
+    /* Expand/collapse */
+    .expandable { max-height: 0; overflow: hidden; transition: max-height 0.35s ease; }
+    .expandable.open { max-height: 2000px; }
+
+    /* Responsive */
+    @media (max-width: 800px) {
+      .bento { grid-template-columns: 1fr; }
+      .bento-wide, .bento-full { grid-column: span 1; }
+      .app-header-inner { flex-direction: column !important; gap: 12px !important; }
+      .stepper-desktop { display: none !important; }
+      .stepper-mobile { display: flex !important; }
+      .info-grid { grid-template-columns: 1fr !important; }
+      .eval-header { flex-direction: column !important; gap: 12px !important; }
+      .results-actions { flex-wrap: wrap !important; }
+      .results-actions button { flex: 1 1 auto; }
+    }
+    @media (min-width: 801px) { .stepper-mobile { display: none !important; } }
+
+    /* Print */
+    @media print {
+      body { background: #fff; } .app-header { display: none !important; }
+      .card { box-shadow: none; border: 1px solid #ddd; break-inside: avoid; }
+    }
+
+    .sr-only { position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);border:0; }
+    @keyframes savedFade { 0%{opacity:1} 100%{opacity:0;transform:translateY(-6px)} }
+    .saved-badge { animation: savedFade 2.5s ease-out forwards; }
+  </style>
+</head>
+<body>
+  <noscript><div style="padding:40px;text-align:center"><h2>JavaScript Required</h2></div></noscript>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useCallback, useMemo, useRef } = React;
+
+    /* ── Cars.com Spark Design Tokens ── */
+    const tk = {
+      // Primary
+      black: "#141817",
+      charcoal: "#3D4846",
+      textWeak: "#52605E",
+      textWeaker: "#6B7876",
+      // Purple spectrum
+      purple: "#65299D",     // logo
+      accent: "#9653E5",     // hero/CTA
+      accentStrong: "#7740B6",
+      accentLight: "#C098EF",
+      accentBg: "#F5EEFC",
+      // Teal
+      teal: "#03AEB9",
+      tealDark: "#23695C",
+      // Surfaces
+      white: "#FFFFFF",
+      surface: "#F0F2F1",
+      surfaceWarm: "#F2F1EF",
+      border: "#E0E4E3",
+      borderStrong: "#A3AEAC",
+      // Status
+      green: "#4CB155",
+      greenDark: "#2C8474",
+      greenBg: "#E3F4F1",
+      orange: "#A14001",
+      orangeBg: "#FEEFE6",
+      red: "#E03D2E",
+      redBg: "#FDE8E6",
+      // Pricing
+      great: "#7740B6", greatBg: "#F5EEFC",
+      good: "#23695C",  goodBg: "#E3F4F1",
+      fair: "#A14001",  fairBg: "#FEEFE6",
+    };
+
+    const THRESHOLDS = { GREAT: 80, AVERAGE: 50 };
+
+    /* ── Security ── */
+    const escapeHtml = (s) => { if (!s) return ""; const d = document.createElement("div"); d.appendChild(document.createTextNode(String(s))); return d.innerHTML; };
+
+    /* ── Cars.com Logo SVG Component ── */
+    function CarsLogo({ color = "#fff", height = 28 }) {
+      const scale = height / 713.73;
+      return (
+        <svg viewBox="0 0 1820.49 713.73" height={height} style={{display:"block"}} aria-label="Cars.com logo">
+          <path fill={color} d="M1330.47,42c-133.55-23.89-280.74-25.86-437.26-16.15-236.34,14.6-455.32,65.26-616.65,146.1C130.73,245,50,333.17,55,413.88c2.8,44.76,28.17,84.69,79.8,124.08C47.89,482.16,0,418.89,0,356.86,0,271.34,91,183.5,249.69,115.93,425.25,41.15,659.82,0,910.24,0,1058.91,0,1202,14.52,1330.47,42"/>
+          <path fill={color} d="M1820.49,356.86c0,85.53-91,173.37-249.69,240.94-175.56,74.74-410.17,115.93-660.56,115.93-149,0-292.43-14.61-421.12-42.14,133.76,24,280.19,26.89,437.06,17.18,236.34-14.64,455.36-66.12,616.66-147,145.83-73.07,226.62-161.25,221.6-242-2.75-44.63-26.89-84.48-78.31-123.87C1772.77,231.78,1820.49,294.92,1820.49,356.86Z"/>
+          <path fill={color} d="M258.67,353.21c0-48.66,36.57-86.21,86.21-86.21,32,0,59.75,17,73.14,42.13l-36.25,21.22c-6.53-13.39-20.57-21.88-37.22-21.88-25.14,0-43.75,18.61-43.75,44.74,0,25.79,18.61,44.41,43.75,44.41,17,0,31-8.17,37.55-21.56L418.67,397c-14,25.47-41.79,42.45-73.79,42.45C295.24,439.41,258.67,401.86,258.67,353.21Z"/>
+          <path fill={color} d="M603.76,271.57V434.84H561.64V415.58c-11.76,14.69-29.39,23.83-53.23,23.83-43.43,0-79.35-37.55-79.35-86.2S465,267,508.41,267c23.84,0,41.47,9.15,53.23,23.84V271.57Zm-44.23,81.64c0-27.43-19.26-46-45.39-46-25.8,0-45.06,18.61-45.06,46s19.26,46,45.06,46C540.27,399.25,559.53,380.64,559.53,353.21Z"/>
+          <path fill={color} d="M720.35,268.31v47c-21.88-2.61-49.64,7.18-49.64,41.47v78H628.59V271.57h42.12v28.08C679.2,277.45,699.78,268.31,720.35,268.31Z"/>
+          <path fill={color} d="M867.09,387.17c0,35.26-30.69,52.24-65.63,52.24-32.66,0-56.82-13.71-68.58-38.86L769.46,380c4.57,13.39,15.67,21.23,32,21.23,13.38,0,22.53-4.57,22.53-14,0-23.84-84.25-10.78-84.25-68.25,0-33.31,28.41-51.92,62-51.92,26.45,0,49.31,12.08,62,34.62l-35.91,19.59c-4.9-10.45-14-16.66-26.13-16.66-10.45,0-18.94,4.58-18.94,13.39C782.84,342.1,867.09,327.08,867.09,387.17Z"/>
+          <path fill={color} d="M903.65,396.47a21.49,21.49,0,1,1-16.57,25.47A21.47,21.47,0,0,1,903.65,396.47Z"/>
+          <path fill={color} d="M938.92,353.21c0-48.66,36.57-86.21,86.21-86.21,32,0,59.75,17,73.14,42.13L1062,330.35c-6.53-13.39-20.57-21.88-37.22-21.88-25.14,0-43.76,18.61-43.76,44.74,0,25.79,18.62,44.41,43.76,44.41,17,0,31-8.17,37.55-21.56l36.57,20.9c-14,25.47-41.8,42.45-73.79,42.45C975.49,439.41,938.92,401.86,938.92,353.21Z"/>
+          <path fill={color} d="M1110.18,353.21c0-48.66,38.2-86.21,86.2-86.21s86.53,37.55,86.53,86.21-38.53,86.2-86.53,86.2S1110.18,401.86,1110.18,353.21Zm130.61,0c0-26.45-19.26-45.07-44.41-45.07-24.82,0-44.08,18.62-44.08,45.07s19.26,45.06,44.08,45.06C1221.53,398.27,1240.79,379.66,1240.79,353.21Z"/>
+          <path fill={color} d="M1546.48,334.27V434.84h-42.13V337.2c0-19.26-9.79-31-27.42-31-18.62,0-30.37,12.41-30.37,36.91v91.75h-42.12V337.2c0-19.26-9.8-31-27.43-31-18,0-30.7,12.41-30.7,36.91v91.75h-42.12V271.57h42.12v17.31c9.14-13.72,24.49-21.88,45.39-21.88,20.24,0,35.27,8.49,44.41,23.51,10.12-14.69,26.45-23.51,48.65-23.51C1522,267,1546.48,293.45,1546.48,334.27Z"/>
+        </svg>
+      );
+    }
+
+    /* ── Scoring Rubric (100-point scale) ── */
+    const ALL_SECTIONS = [
+      { id:"txt_intro", label:"Text Introductions", icon:"\uD83D\uDCF1", maxPts:3,
+        criteria:[
+          {id:"t1",label:"Mentioned rep's name in first text",pts:1},
+          {id:"t2",label:"Mentioned dealership name in first text",pts:1},
+          {id:"t3",label:"Referred to customer by name in first text",pts:1},
+        ]},
+      { id:"vm_intro", label:"Voicemail Introductions", icon:"\uD83D\uDCDE", maxPts:3, hideFor:["Chat Lead"],
+        criteria:[
+          {id:"v1",label:"Rep introduced themselves in first voicemail",pts:1},
+          {id:"v2",label:"Mentioned dealership name in first voicemail",pts:1},
+          {id:"v3",label:"Referred to customer by name in first voicemail",pts:1},
+        ]},
+      { id:"email_intro", label:"Email Introductions", icon:"\u2709\uFE0F", maxPts:4,
+        criteria:[
+          {id:"e1",label:"Mentioned rep's name in first email",pts:1},
+          {id:"e2",label:"Referred to customer by name in first email",pts:1},
+          {id:"e3",label:"Mentioned dealership name in first email",pts:1},
+          {id:"e4",label:"Subject line includes vehicle or customer name",pts:1},
+        ]},
+      { id:"engagement", label:"Engagement & Conversion", icon:"\uD83C\uDFAF", maxPts:20,
+        criteria:[
+          {id:"eng1",label:"Asked for an appointment via text",pts:4},
+          {id:"eng2",label:"Asked for appointment via email",pts:2},
+          {id:"eng3",label:"Asked for appointment via voicemail",pts:2, hideFor:["Chat Lead"]},
+          {id:"eng4",label:"Offered specific appointment date/time (not open-ended)",pts:4},
+          {id:"eng5",label:"Referenced the specific vehicle inquired about",pts:3},
+          {id:"eng6",label:"Mentioned trade-in value or financing options",pts:2},
+          {id:"eng7",label:"Email provided urgency or reason to act quickly",pts:2},
+          {id:"eng8",label:"Positioned dealership value proposition",pts:1},
+        ]},
+      { id:"comm_style", label:"Communication Style", icon:"\uD83D\uDCAC", maxPts:10,
+        criteria:[
+          {id:"cs1",label:"Messages sounded friendly and professional \u2014 full credit",pts:5,group:"cs"},
+          {id:"cs2",label:"Messages somewhat friendly \u2014 partial credit",pts:3,group:"cs"},
+          {id:"cs3",label:"Messages were personalized, not template/robotic",pts:3},
+          {id:"cs4",label:"Used media (photos, video walkaround, links)",pts:2},
+        ]},
+      { id:"knowledge", label:"Knowledge & Information", icon:"\uD83D\uDCA1", maxPts:10,
+        criteria:[
+          {id:"k1",label:"Answered all questions from the conversation",pts:4},
+          {id:"k2",label:"Provided accurate vehicle info (price, features, availability)",pts:3},
+          {id:"k3",label:"Demonstrated product knowledge or competitive advantages",pts:3},
+        ]},
+      { id:"responsiveness", label:"Responsiveness", icon:"\u26A1", maxPts:25,
+        criteria:[
+          {id:"r1",label:"Phone response < 5 min",pts:10,group:"phone",hideFor:["Chat Lead"]},
+          {id:"r2",label:"Phone response 5\u201315 min",pts:7,group:"phone",hideFor:["Chat Lead"]},
+          {id:"r3",label:"Phone response 15\u201330 min",pts:4,group:"phone",hideFor:["Chat Lead"]},
+          {id:"r4",label:"Phone response > 30 min",pts:0,group:"phone",hideFor:["Chat Lead"]},
+          {id:"r4b",label:"No phone response",pts:0,group:"phone",hideFor:["Chat Lead"]},
+          {id:"r5",label:"Text response < 3 min",pts:5,group:"text"},
+          {id:"r6",label:"Text response 3\u20136 min",pts:4,group:"text"},
+          {id:"r7",label:"Text response 6\u201315 min",pts:2,group:"text"},
+          {id:"r8",label:"Text response 15\u201330 min",pts:1,group:"text"},
+          {id:"r9",label:"Text response > 30 min or none",pts:0,group:"text"},
+          {id:"r10",label:"Email response < 15 min",pts:5,group:"email"},
+          {id:"r11",label:"Email response 15\u201330 min",pts:4,group:"email"},
+          {id:"r12",label:"Email response 30\u201360 min",pts:2,group:"email"},
+          {id:"r13",label:"Email response > 60 min or none",pts:0,group:"email"},
+          {id:"r14",label:"Left voicemail on every unanswered call",pts:3,hideFor:["Chat Lead"]},
+          {id:"r15",label:"Auto-acknowledgment or confirmation sent",pts:2},
+          {id:"rc1",label:"Chat response < 60 seconds",pts:10,group:"chat",showFor:["Chat Lead"]},
+          {id:"rc2",label:"Chat response 1\u20133 min",pts:7,group:"chat",showFor:["Chat Lead"]},
+          {id:"rc3",label:"Chat response 3\u20135 min",pts:4,group:"chat",showFor:["Chat Lead"]},
+          {id:"rc4",label:"Chat response > 5 min or none",pts:0,group:"chat",showFor:["Chat Lead"]},
+          {id:"rc5",label:"Quality handoff from chat to human (context preserved)",pts:3,showFor:["Chat Lead"]},
+        ]},
+      { id:"followup", label:"Follow-Up", icon:"\uD83D\uDD01", maxPts:25,
+        criteria:[
+          {id:"f1",label:"Phone AND text follow-up on Day 1",pts:8},
+          {id:"f2",label:"Phone AND text follow-up on Day 2",pts:8},
+          {id:"f3",label:"Phone AND text follow-up on Day 3",pts:6},
+          {id:"f4",label:"Follow-up referenced prior conversation or specific needs",pts:3},
+        ]},
+    ];
+
+    function getSections(shopType) {
+      return ALL_SECTIONS
+        .filter(s => !s.hideFor || !s.hideFor.includes(shopType))
+        .map(s => {
+          const filtered = s.criteria.filter(c => {
+            if (c.showFor && !c.showFor.includes(shopType)) return false;
+            if (c.hideFor && c.hideFor.includes(shopType)) return false;
+            return true;
+          });
+          // Dynamically compute maxPts from filtered criteria (respecting radio groups)
+          const groups = {};
+          let computedMax = 0;
+          filtered.forEach(c => {
+            if (c.group) {
+              groups[c.group] = Math.max(groups[c.group] || 0, c.pts);
+            } else {
+              computedMax += c.pts;
+            }
+          });
+          computedMax += Object.values(groups).reduce((a, v) => a + v, 0);
+          return { ...s, criteria: filtered, maxPts: computedMax };
+        })
+        .filter(s => s.criteria.length > 0);
+    }
+
+    function getRating(pct) {
+      if (pct >= THRESHOLDS.GREAT) return { label:"Great", color:tk.great, bg:tk.greatBg, icon:"\u2713" };
+      if (pct >= THRESHOLDS.AVERAGE) return { label:"Average", color:tk.fair, bg:tk.fairBg, icon:"\u25B3" };
+      return { label:"Needs Work", color:tk.red, bg:tk.redBg, icon:"\u2717" };
+    }
+
+    /* ── Recommendations (expanded) ── */
+    const RECS = {
+      t1:"Include rep's full name in the opening text: 'Hi Sarah, this is Mike at...'",
+      t2:"Always lead with the dealership name for brand recognition.",
+      t3:"Use the customer's first name within the first sentence.",
+      v1:"Start every voicemail with: 'Hi [Name], this is [Rep] at [Dealer]...'",
+      v2:"Mention the dealership name clearly in every voicemail.",
+      v3:"Use the customer's name at the start and end of each voicemail.",
+      e1:"Ensure rep's name and title appear in signature and opening.",
+      e2:"Personalize the greeting with the customer's first name.",
+      e3:"Include the dealership name in the email header.",
+      e4:"Custom subject lines convert 2x: '[Vehicle] at [Dealer] \u2013 Your Inquiry'",
+      eng1:"Close every text with a specific appointment ask: 'Does Tuesday at 2 or Thursday at 10 work?'",
+      eng2:"Every email should end with two specific appointment options.",
+      eng3:"Script voicemail asks: 'Does Thursday afternoon or Friday morning work?'",
+      eng4:"Always offer 2 specific date/time options \u2014 converts 3x vs open-ended asks.",
+      eng5:"Reference exact vehicle: year, make, model, trim. Not 'the vehicle you inquired about.'",
+      eng6:"Proactively mention: 'We can get you a quick trade-in estimate and pre-approval.'",
+      eng7:"Include time-sensitive hook: limited inventory, expiring promo, end-of-month.",
+      eng8:"Mention one unique differentiator: certified inventory, price guarantee, etc.",
+      cs1:"Excellent tone \u2014 maintain this across all channels.",
+      cs2:"Upgrade by using customer's name, asking questions, showing genuine interest.",
+      cs3:"Reference specific details from the inquiry to show you've read their message.",
+      cs4:"Send a personalized 30-second video walkaround or photo with stock #.",
+      k1:"Answer all questions in the same thread. Unanswered questions signal disinterest.",
+      k2:"Verify pricing and availability before responding. Inaccurate info kills trust.",
+      k3:"Prepare competitive cheat sheet: 'Unlike [competitor], we offer...'",
+      r1:"Excellent! Maintain with dedicated BDC staffing.",r2:"Good. Push for <5 min with instant CRM alerts.",
+      r3:"15\u201330 min loses leads. Implement real-time alerts.",r4:"30+ min = lost lead. Implement <5 min SLA.",
+      r4b:"No phone response is a critical failure. Every lead needs a call within 5 min.",
+      r5:"Outstanding text speed!",r6:"Good. Push <3 min with auto-notifications.",
+      r7:"6\u201315 min losing urgency. Enable SMS auto-alerts.",r8:"Below average. Review lead routing.",
+      r9:"30+ min or no text = missed opportunity. Text is #1 preferred channel.",
+      r10:"Excellent email speed!",r11:"Good. Pre-build personalized templates in CRM.",
+      r12:"30\u201360 min below average. Configure personalized auto-response.",
+      r13:"60+ min or no response signals disinterest. At minimum, auto-respond with vehicle details.",
+      r14:"Leave VM every unanswered call: 'Calling about the [Vehicle] on Cars.com...'",
+      r15:"Configure instant auto-ack: 'Thanks for your interest! A specialist will reach out.'",
+      rc1:"Gold standard chat speed!",rc2:"Good. Push <60s with dedicated staff.",
+      rc3:"3\u20135 min loses chat engagement. Staff properly.",rc4:"Slow/no chat worse than no chat at all.",
+      rc5:"Rep should reference chat: 'I see you were asking about the [Vehicle]...'",
+      f1:"Day 1: call within 5 min, text within 10, email within 30 with vehicle details.",
+      f2:"Day 2: add new value \u2014 pricing update, similar inventory, specific incentive.",
+      f3:"Day 3: lead with urgency: 'Wanted to reach out before [Vehicle] is gone...'",
+      f4:"Every follow-up should reference a prior detail: 'You mentioned the sunroof...'",
+    };
+    function getRec(id) { return RECS[id] || "Review workflows for this metric."; }
+
+    /* ── localStorage ── */
+    const STORE_KEY = "carscom_mystshop_v3";
+    function loadState() { try { const r=localStorage.getItem(STORE_KEY); return r?JSON.parse(r):null; } catch{return null;} }
+    function persist(d) {
+      try {
+        const json = JSON.stringify(d);
+        if (json.length > 4 * 1024 * 1024) {
+          // Skip attachments if data exceeds 4MB to avoid localStorage overflow
+          const slim = { ...d, attachments: [] };
+          localStorage.setItem(STORE_KEY, JSON.stringify(slim));
+        } else {
+          localStorage.setItem(STORE_KEY, json);
+        }
+      } catch {}
+    }
+    function clearStore() { try { localStorage.removeItem(STORE_KEY); } catch{} }
+
+    /* ── Score Ring (fixed gauge) ── */
+    function ScoreRing({ score, size=180, strokeWidth=14, animate=true }) {
+      const r = (size - strokeWidth) / 2;
+      const circ = 2 * Math.PI * r;
+      const pct = Math.min(100, Math.max(0, score));
+      const offset = circ - (pct / 100) * circ;
+      const rt = getRating(pct);
+
+      return (
+        <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} role="img" aria-label={`Score: ${pct}%, ${rt.label}`}>
+          <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="#E0E4E3" strokeWidth={strokeWidth}/>
+          <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={rt.color} strokeWidth={strokeWidth}
+            strokeDasharray={circ} strokeDashoffset={animate ? offset : circ}
+            strokeLinecap="round" transform={`rotate(-90 ${size/2} ${size/2})`}
+            style={{transition: animate ? "stroke-dashoffset 1.2s cubic-bezier(0.4, 0, 0.2, 1)" : "none"}}/>
+          <text x={size/2} y={size/2-8} textAnchor="middle" fill="#FFFFFF" fontSize={size*0.26} fontWeight="900" fontFamily="DM Sans">{pct}</text>
+          <text x={size/2} y={size/2+16} textAnchor="middle" fill="#C098EF" fontSize={size*0.075}>out of 100</text>
+          <text x={size/2} y={size/2+36} textAnchor="middle" fill={rt.color} fontSize={size*0.065} fontWeight="700">{rt.label.toUpperCase()}</text>
+        </svg>
+      );
+    }
+
+    /* ── Progress Bar ── */
+    function Bar({ pct, color, height=8 }) {
+      return (
+        <div style={{background:"#E0E4E3",borderRadius:height/2,height,overflow:"hidden",width:"100%"}}>
+          <div style={{width:`${pct}%`,height:"100%",background:color,borderRadius:height/2,transition:"width 0.5s ease"}}/>
+        </div>
+      );
+    }
+
+    /* ── Attachment Upload System ── */
+    function AttachmentUploader({ attachments, setAttachments }) {
+      const fileRef = useRef(null);
+      const handleFiles = (e) => {
+        const files = Array.from(e.target.files);
+        files.forEach(f => {
+          const reader = new FileReader();
+          reader.onload = (ev) => {
+            setAttachments(prev => [...prev, {
+              name: f.name, type: f.type, size: f.size,
+              data: ev.target.result, addedAt: new Date().toISOString()
+            }]);
+          };
+          reader.readAsDataURL(f);
+        });
+        e.target.value = "";
+      };
+      const remove = (i) => setAttachments(prev => prev.filter((_, idx) => idx !== i));
+      const formatSize = (b) => b < 1024 ? b+"B" : b < 1048576 ? (b/1024).toFixed(1)+"KB" : (b/1048576).toFixed(1)+"MB";
+      const isImage = (t) => t && t.startsWith("image/");
+
+      return (
+        <div>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
+            <div>
+              <div style={{fontSize:13,fontWeight:700,color:tk.black}}>Response Attachments</div>
+              <div style={{fontSize:11,color:tk.textWeak,marginTop:2}}>Upload screenshots of emails, texts, or voicemail logs</div>
+            </div>
+            <button onClick={() => fileRef.current?.click()}
+              style={{padding:"8px 16px",borderRadius:10,border:`1.5px solid ${tk.accent}`,background:tk.white,color:tk.accent,fontSize:12,fontWeight:600}}>
+              + Add Files
+            </button>
+            <input ref={fileRef} type="file" multiple accept="image/*,.pdf,.eml,.msg,.txt" onChange={handleFiles} style={{display:"none"}}/>
+          </div>
+          {attachments.length > 0 && (
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill, minmax(140px, 1fr))",gap:10}}>
+              {attachments.map((a, i) => (
+                <div key={i} className="card" style={{padding:8,position:"relative",overflow:"hidden"}}>
+                  {isImage(a.type) ? (
+                    <img src={a.data} alt={a.name} style={{width:"100%",height:90,objectFit:"cover",borderRadius:8}}/>
+                  ) : (
+                    <div style={{width:"100%",height:90,borderRadius:8,background:tk.surface,display:"flex",alignItems:"center",justifyContent:"center",fontSize:24}}>
+                      {a.type?.includes("pdf") ? "\uD83D\uDCC4" : "\uD83D\uDCCE"}
+                    </div>
+                  )}
+                  <div style={{marginTop:6,fontSize:10,color:tk.textWeak,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{a.name}</div>
+                  <div style={{fontSize:9,color:tk.textWeaker}}>{formatSize(a.size)}</div>
+                  <button onClick={() => remove(i)}
+                    style={{position:"absolute",top:4,right:4,width:20,height:20,borderRadius:"50%",border:"none",
+                      background:"rgba(0,0,0,0.5)",color:"#fff",fontSize:11,display:"flex",alignItems:"center",justifyContent:"center",padding:0}}>
+                    \u2715
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+          {attachments.length === 0 && (
+            <div onClick={() => fileRef.current?.click()}
+              style={{border:`2px dashed ${tk.border}`,borderRadius:12,padding:24,textAlign:"center",cursor:"pointer",
+                color:tk.textWeaker,fontSize:12,transition:"all 0.15s"}}>
+              <div style={{fontSize:28,marginBottom:4}}>\uD83D\uDCCE</div>
+              Drop files here or click to browse
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    /* ── Info Form ── */
+    function InfoForm({ info, setInfo, onNext, tried }) {
+      const err = (k) => tried && !info[k];
+      const field = (key, label, req, type) => (
+        <div key={key}>
+          <label htmlFor={`f-${key}`} style={{display:"block",fontSize:11,fontWeight:700,color:tk.textWeak,textTransform:"uppercase",letterSpacing:"1px",marginBottom:6}}>
+            {label}{req && <span style={{color:tk.red}}> *</span>}
+          </label>
+          <input id={`f-${key}`} type={type||"text"} value={info[key]} required={req}
+            onChange={e => setInfo(p => ({...p,[key]:e.target.value}))}
+            style={{width:"100%",padding:"12px 16px",border:`1.5px solid ${err(key)?tk.red:tk.border}`,borderRadius:10,
+              fontSize:14,color:tk.black,background:err(key)?tk.redBg:tk.white,fontFamily:"inherit",transition:"all 0.15s"}}/>
+          {err(key) && <div style={{color:tk.red,fontSize:11,marginTop:4,fontWeight:500}} role="alert">{label} is required</div>}
+        </div>
+      );
+      return (
+        <div className="fade-in">
+          <h2 style={{fontSize:24,fontWeight:800,margin:"0 0 4px",color:tk.black}}>Shop Details</h2>
+          <p style={{color:tk.textWeak,margin:"0 0 24px",fontSize:14}}>Enter dealership and auditor information before beginning.</p>
+          <div className="card" style={{padding:32}}>
+            <div className="info-grid" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:22}}>
+              {field("dealership","Dealership Name",true)}
+              {field("auditor","Auditor Name",true)}
+              {field("date","Shop Date",true,"date")}
+              {field("repName","Sales Rep Name")}
+              <div>
+                <label htmlFor="f-type" style={{display:"block",fontSize:11,fontWeight:700,color:tk.textWeak,textTransform:"uppercase",letterSpacing:"1px",marginBottom:6}}>Shop Type</label>
+                <select id="f-type" value={info.shopType} onChange={e => setInfo(p => ({...p,shopType:e.target.value}))}
+                  style={{width:"100%",padding:"12px 16px",border:`1.5px solid ${tk.border}`,borderRadius:10,fontSize:14,color:tk.black,background:tk.white,fontFamily:"inherit",cursor:"pointer"}}>
+                  {["Internet Lead","Phone Lead","Chat Lead","Walk-In Follow-Up"].map(t => <option key={t}>{t}</option>)}
+                </select>
+              </div>
+            </div>
+          </div>
+          <div style={{marginTop:28,display:"flex",justifyContent:"flex-end"}}>
+            <button onClick={onNext}
+              style={{background:tk.black,color:tk.white,border:"none",borderRadius:12,padding:"14px 36px",fontSize:15,fontWeight:700,
+                boxShadow:"0 4px 14px rgba(0,0,0,0.15)"}}>
+              Begin Evaluation &rarr;
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    /* ── Evaluation Panel ── */
+    function EvalPanel({ info, sections, checks, setChecks, notes, setNotes, attachments, setAttachments, active, setActive, overallPct, overallRt, calcSec, onResults }) {
+      const toggle = useCallback((id, group) => {
+        if (group) {
+          setChecks(prev => {
+            const n = {...prev};
+            sections.forEach(s => s.criteria.forEach(c => { if (c.group===group) delete n[c.id]; }));
+            if (!prev[id]) n[id]=true;
+            return n;
+          });
+        } else { setChecks(prev => ({...prev,[id]:!prev[id]})); }
+      }, [sections, setChecks]);
+
+      const renderCriteria = (sec) => {
+        const rt = getRating(calcSec(sec).pct);
+        let curGroup = null;
+        const els = [];
+        sec.criteria.forEach((c, ci) => {
+          const isGrp = !!c.group, checked = !!checks[c.id], isZero = c.pts===0;
+          if (isGrp && c.group !== curGroup) {
+            curGroup = c.group;
+            els.push(<div key={`g-${c.group}`} style={{fontSize:11,fontWeight:700,color:tk.accent,textTransform:"uppercase",letterSpacing:"1px",marginTop:ci>0?14:0,marginBottom:4,paddingLeft:2}}>
+              {c.group.charAt(0).toUpperCase()+c.group.slice(1)} Response Time <span style={{fontWeight:400,textTransform:"none",color:tk.textWeaker}}>(select one)</span>
+            </div>);
+          } else if (!isGrp) curGroup = null;
+          els.push(
+            <div key={c.id} className="criteria-row" role={isGrp?"radio":"checkbox"} tabIndex={0}
+              aria-checked={checked} onClick={() => toggle(c.id,c.group)}
+              onKeyDown={e => {if(e.key===" "||e.key==="Enter"){e.preventDefault();toggle(c.id,c.group);}}}
+              style={{display:"flex",alignItems:"center",gap:12,padding:"12px 16px",cursor:"pointer",
+                background:checked?(isZero?"#F5F7F6":rt.bg):tk.white,border:`1.5px solid ${checked?(isZero?tk.borderStrong:rt.color):"transparent"}`,
+                marginLeft:isGrp?14:0}}>
+              <div style={{width:20,height:20,borderRadius:isGrp?"50%":5,border:`2px solid ${checked?(isZero?tk.borderStrong:rt.color):tk.border}`,
+                background:checked?(isZero?tk.borderStrong:rt.color):tk.white,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,transition:"all 0.15s"}}>
+                {checked && <span style={{color:"#fff",fontSize:11}}>{isGrp?"\u2022":"\u2713"}</span>}
+              </div>
+              <span style={{flex:1,fontSize:13,color:tk.black,fontWeight:checked?600:400}}>{c.label}</span>
+              <span style={{fontSize:11,fontWeight:700,padding:"3px 10px",borderRadius:20,background:isZero?"#E0E4E3":(checked?rt.color:tk.surface),
+                color:isZero?tk.textWeaker:(checked?"#fff":tk.textWeak),flexShrink:0}}>
+                {c.pts} pt{c.pts!==1?"s":""}
+              </span>
+            </div>
+          );
+        });
+        return els;
+      };
+
+      return (
+        <div className="fade-in">
+          <div className="eval-header" style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:20}}>
+            <div>
+              <h2 style={{fontSize:24,fontWeight:800,margin:0}}>Mystery Shop Evaluation</h2>
+              <p style={{color:tk.textWeak,margin:"4px 0 0",fontSize:13}}>{info.dealership} &middot; {info.shopType} &middot; {info.date}</p>
+            </div>
+            <div className="card scale-in" style={{textAlign:"center",padding:"12px 20px",border:`2px solid ${overallRt.color}`,
+              boxShadow:`0 4px 16px ${overallRt.color}20`}} aria-live="polite">
+              <div style={{color:overallRt.color,fontSize:30,fontWeight:900,lineHeight:1,fontFamily:"DM Sans"}}>{overallPct}%</div>
+              <div style={{fontSize:9,color:tk.textWeaker,marginTop:2,textTransform:"uppercase",letterSpacing:"1px"}}>Live Score</div>
+              <div style={{color:overallRt.color,fontSize:11,fontWeight:700,marginTop:2}}>{overallRt.label}</div>
+            </div>
+          </div>
+
+          {/* Section tabs */}
+          <div role="tablist" style={{display:"flex",gap:6,marginBottom:16,flexWrap:"wrap",overflowX:"auto",paddingBottom:4}}>
+            {sections.map((s, i) => {
+              const r = calcSec(s), rt = getRating(r.pct);
+              return (
+                <button key={s.id} role="tab" aria-selected={active===i}
+                  onClick={() => setActive(i)}
+                  style={{padding:"7px 14px",borderRadius:20,border:active===i?`2px solid ${tk.accent}`:`1.5px solid ${tk.border}`,
+                    fontSize:12,fontWeight:active===i?700:500,background:active===i?tk.accentBg:tk.white,color:active===i?tk.accent:tk.charcoal,
+                    boxShadow:active===i?`0 2px 8px ${tk.accent}20`:"none",whiteSpace:"nowrap"}}>
+                  <span style={{marginRight:4}}>{s.icon}</span>{s.label}
+                  <span style={{marginLeft:6,padding:"2px 7px",borderRadius:10,fontSize:10,fontWeight:800,background:rt.bg,color:rt.color}}>{r.pct}%</span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Active section */}
+          {sections.map((sec, si) => {
+            if (si !== active) return null;
+            const r = calcSec(sec), rt = getRating(r.pct);
+            return (
+              <div key={sec.id} className="card fade-in" style={{padding:28}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+                  <div>
+                    <h3 style={{margin:0,fontSize:18,fontWeight:800}}><span style={{marginRight:8}}>{sec.icon}</span>{sec.label}</h3>
+                    <div style={{color:tk.textWeak,fontSize:12,marginTop:4}}>Max: {sec.maxPts} points</div>
+                  </div>
+                  <div style={{textAlign:"right"}}>
+                    <div style={{fontSize:28,fontWeight:900,color:rt.color,lineHeight:1,fontFamily:"DM Sans"}}>{r.pct}%</div>
+                    <div style={{fontSize:11,color:rt.color,fontWeight:700}}>{rt.icon} {rt.label}</div>
+                    <div style={{fontSize:11,color:tk.textWeak,marginTop:2}}>{r.earned} / {sec.maxPts} pts</div>
+                  </div>
+                </div>
+                <Bar pct={r.pct} color={rt.color} height={6}/>
+                <div style={{marginTop:16,display:"flex",flexDirection:"column",gap:6}}>{renderCriteria(sec)}</div>
+                <div style={{display:"flex",justifyContent:"space-between",marginTop:22}}>
+                  {si > 0 ? <button onClick={() => setActive(si-1)} style={{padding:"10px 22px",borderRadius:10,border:`1.5px solid ${tk.border}`,background:tk.white,color:tk.black,fontSize:12,fontWeight:600}}>&larr; Previous</button> : <div/>}
+                  {si < sections.length-1 ? (
+                    <button onClick={() => setActive(si+1)} style={{padding:"10px 22px",borderRadius:10,background:tk.black,border:"none",color:tk.white,fontSize:12,fontWeight:700}}>Next &rarr;</button>
+                  ) : (
+                    <button onClick={onResults} style={{padding:"10px 28px",borderRadius:10,background:`linear-gradient(135deg, ${tk.accent}, ${tk.teal})`,border:"none",color:tk.white,fontSize:13,fontWeight:800,boxShadow:`0 4px 14px ${tk.accent}30`}}>View Results &rarr;</button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+
+          {/* Attachments */}
+          <div className="card" style={{marginTop:16,padding:20}}>
+            <AttachmentUploader attachments={attachments} setAttachments={setAttachments}/>
+          </div>
+
+          {/* Notes */}
+          <div className="card" style={{marginTop:12,padding:20}}>
+            <label htmlFor="notes" style={{display:"block",fontSize:11,fontWeight:700,color:tk.textWeak,textTransform:"uppercase",letterSpacing:"1px",marginBottom:6}}>Auditor Notes</label>
+            <textarea id="notes" value={notes} onChange={e => setNotes(e.target.value)}
+              placeholder="Observations, compliance issues, notable behaviors..."
+              style={{width:"100%",minHeight:80,padding:"12px 14px",border:`1.5px solid ${tk.border}`,borderRadius:10,resize:"vertical",fontSize:13,color:tk.black,background:tk.white,fontFamily:"inherit"}}/>
+          </div>
+        </div>
+      );
+    }
+
+    /* ── Results Dashboard (Bento Grid) ── */
+    function Results({ info, sections, checks, notes, attachments, secRes, totalEarned, totalMax, overallPct, overallRt, onEdit, onNew }) {
+      const [expanded, setExpanded] = useState({});
+      const toggleExpand = (id) => setExpanded(p => ({...p, [id]: !p[id]}));
+
+      // Gather all criteria for opportunities
+      const allCriteria = useMemo(() => {
+        let arr = [];
+        sections.forEach(s => s.criteria.forEach(c => arr.push({...c, section:s.label, earned:checks[c.id]?c.pts:0})));
+        return arr;
+      }, [sections, checks]);
+      const gaps = useMemo(() => allCriteria.filter(c => c.earned < c.pts && c.pts > 0).sort((a,b) => (b.pts-b.earned)-(a.pts-a.earned)).slice(0,8), [allCriteria]);
+      const strengths = useMemo(() => allCriteria.filter(c => c.earned===c.pts && c.pts>0), [allCriteria]);
+
+      /* ── Download Report ── */
+      const download = useCallback(() => {
+        const si = (s) => escapeHtml(s);
+        const sn = escapeHtml(notes);
+
+        const scorecardRows = secRes.map(s => { const rt=getRating(s.pct); return `<tr><td style="padding:10px;border-bottom:1px solid #eee;font-weight:600;">${si(s.label)}</td><td style="padding:10px;text-align:center;">${s.pct}%</td><td style="padding:10px;text-align:center;">${s.earned}/${s.maxPts}</td><td style="padding:10px;font-weight:bold;color:${rt.color};text-align:center;">${rt.icon} ${rt.label}</td></tr>`; }).join("");
+
+        const detailSections = secRes.map(s => { const rt=getRating(s.pct); const rows=s.criteria.map(c => { const e=checks[c.id]?c.pts:0; return `<tr><td style="padding:8px;border-bottom:1px solid #f0f0f0;">${si(c.label)}</td><td style="padding:8px;text-align:center;font-weight:bold;color:${e>0?'#4CB155':'#E03D2E'}">${e}/${c.pts}</td></tr>`; }).join(""); return `<div style="margin-top:24px;border:1px solid #E0E4E3;border-radius:12px;overflow:hidden;break-inside:avoid;"><div style="background:#F5EEFC;padding:12px 20px;border-bottom:2px solid #65299D;display:flex;justify-content:space-between;align-items:center;"><h3 style="margin:0;color:#141817;font-size:15px;font-family:DM Sans;">${si(s.label)}</h3><span style="font-weight:bold;color:${rt.color};">${s.pct}% (${s.earned}/${s.maxPts})</span></div><table style="width:100%;border-collapse:collapse;"><thead><tr><th style="padding:10px;text-align:left;color:#52605E;font-size:12px;background:#fafafa;">Criterion</th><th style="padding:10px;text-align:center;color:#52605E;font-size:12px;width:18%;background:#fafafa;">Result</th></tr></thead><tbody>${rows}</tbody></table></div>`; }).join("");
+
+        let oppRows = gaps.map((c,i) => `<tr><td style="padding:12px;text-align:center;font-weight:bold;">${i+1}</td><td style="padding:12px;font-weight:bold;color:#E03D2E;">+${c.pts-c.earned}</td><td style="padding:12px;">${si(c.label)}</td><td style="padding:12px;color:#52605E;font-style:italic;">${si(getRec(c.id))}</td></tr>`).join("");
+        if(!oppRows) oppRows = `<tr><td colspan="4" style="padding:20px;color:#4CB155;font-weight:bold;text-align:center;">\u2713 All criteria met!</td></tr>`;
+
+        const attachHTML = attachments.length > 0 ? `<h2 style="color:#65299D;margin-top:40px;border-bottom:2px solid #E0E4E3;padding-bottom:8px;font-family:DM Sans;">RESPONSE ATTACHMENTS</h2><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:16px;margin-top:16px;">${attachments.map(a => a.type?.startsWith("image/") ? `<div style="border:1px solid #E0E4E3;border-radius:8px;overflow:hidden;"><img src="${a.data}" style="width:100%;display:block;" alt="${si(a.name)}"/><div style="padding:8px;font-size:11px;color:#52605E;">${si(a.name)}</div></div>` : `<div style="border:1px solid #E0E4E3;border-radius:8px;padding:16px;text-align:center;"><div style="font-size:32px;">\uD83D\uDCCE</div><div style="font-size:12px;color:#52605E;margin-top:4px;">${si(a.name)}</div></div>`).join("")}</div>` : "";
+
+        const html = `<!DOCTYPE html><html><head><title>Mystery Shop - ${si(info.dealership)}</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>body{font-family:Inter,sans-serif;color:#141817;line-height:1.6;max-width:900px;margin:40px auto;padding:30px;background:#fff;}
+h1,h2,h3{font-family:'DM Sans',sans-serif;}
+h2{color:#65299D;margin-top:40px;border-bottom:2px solid #E0E4E3;padding-bottom:8px;font-size:20px;}
+table{width:100%;border-collapse:collapse;margin-top:12px;}
+th{background:#F5EEFC;color:#141817;padding:12px;text-align:left;font-size:13px;border-bottom:2px solid #9653E5;}
+.hdr{background:linear-gradient(135deg,#1a0533,#65299D);color:#fff;padding:32px;border-radius:12px 12px 0 0;}
+.hdr h1{margin:0 0 4px;font-size:26px;} .hdr p{margin:0;color:#C098EF;font-size:15px;}
+.meta{border:1px solid #E0E4E3;border-radius:0 0 12px 12px;overflow:hidden;margin-bottom:32px;}
+.meta th{background:#F5EEFC;color:#52605E;width:22%;font-size:11px;text-transform:uppercase;letter-spacing:1px;}
+.meta td{padding:12px;border-bottom:1px solid #f0f0f0;font-size:14px;}
+.banner{display:flex;align-items:center;gap:24px;background:#F5EEFC;padding:28px;border:2px solid #9653E5;border-radius:12px;margin:28px 0;break-inside:avoid;}
+.banner .num{font-size:64px;font-weight:900;font-family:'DM Sans';line-height:1;}
+.findings{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px;}
+.fbox{border:1px solid #E0E4E3;border-radius:10px;padding:20px;break-inside:avoid;}
+.fbox h4{margin-top:0;font-size:15px;} .fbox ul{margin:0;padding-left:18px;font-size:13px;color:#3D4846;} .fbox li{margin-bottom:5px;}
+.footer{margin-top:60px;font-size:11px;color:#6B7876;border-top:1px solid #E0E4E3;padding-top:16px;}
+@media print{body{max-width:100%;margin:0;padding:20px;} .banner,.findings,.fbox,table{break-inside:avoid;} h2{break-after:avoid;}}
+</style></head><body>
+<div class="hdr"><h1>Cars.com</h1><p>Mystery Shop Evaluation Report</p></div>
+<table class="meta"><tr><th>Dealership</th><td><strong>${si(info.dealership)}</strong></td></tr><tr><th>Auditor</th><td>${si(info.auditor)}</td></tr>${info.repName?`<tr><th>Sales Rep</th><td>${si(info.repName)}</td></tr>`:""}<tr><th>Shop Date</th><td>${si(info.date)}</td></tr><tr><th>Shop Type</th><td>${si(info.shopType)}</td></tr></table>
+<div class="banner"><div class="num" style="color:${overallRt.color}">${overallPct}%</div><div><h3 style="margin:0 0 4px;color:#141817;font-size:16px;text-transform:uppercase;">Overall Mystery Shop Score</h3><p style="margin:0;font-weight:bold;color:${overallRt.color};font-size:18px;">${overallRt.label} \u2014 ${totalEarned}/${totalMax} points</p><p style="margin:6px 0 0;font-size:12px;color:#52605E;">\u2265 80% Great | 50\u201379% Average | < 50% Needs Work</p></div></div>
+<h2>EXECUTIVE SUMMARY</h2><p style="font-size:14px;color:#3D4846;">${si(info.dealership)} earned a Mystery Shop Score of <strong>${overallPct}/100</strong> \u2014 placing the dealership in the <strong>${overallRt.label}</strong> tier.</p>
+<div class="findings"><div class="fbox" style="border-top:4px solid #4CB155;"><h4 style="color:#4CB155;">\u2713 Strengths</h4><ul>${strengths.map(c=>`<li>${si(c.label)}</li>`).join("")||"<li>No strengths identified.</li>"}</ul></div><div class="fbox" style="border-top:4px solid #E03D2E;"><h4 style="color:#E03D2E;">\u2717 Critical Gaps</h4><ul>${gaps.map(c=>`<li>${si(c.label)}</li>`).join("")||"<li>No gaps \u2014 excellent!</li>"}</ul></div></div>
+<h2>SCORECARD</h2><table><thead><tr><th>Category</th><th style="text-align:center">Score</th><th style="text-align:center">Points</th><th style="text-align:center">Rating</th></tr></thead><tbody>${scorecardRows}</tbody></table>
+<h2>TOP OPPORTUNITIES</h2><table><thead><tr><th style="text-align:center;width:5%">#</th><th style="width:10%">Impact</th><th style="width:38%">Area</th><th style="width:47%">Recommended Action</th></tr></thead><tbody>${oppRows}</tbody></table>
+<div style="page-break-before:always"></div><h2>SECTION DETAILS</h2>${detailSections}
+${attachHTML}
+${sn?`<h2>AUDITOR COMMENTS</h2><div style="background:#F5EEFC;padding:20px;border-left:4px solid #9653E5;border-radius:6px;break-inside:avoid;"><p style="margin:0;font-size:14px;font-style:italic;color:#3D4846;">"${sn.replace(/\n/g,"<br/>")}"</p><p style="margin:10px 0 0;font-size:12px;font-weight:bold;color:#9653E5;">\u2014 ${si(info.auditor)}</p></div>`:""}
+<div class="footer"><strong>About This Report:</strong> Prepared by Cars.com for ${si(info.dealership)}. Score reflects a single shop on ${si(info.date)}. Designed to identify process gaps and improve digital communication effectiveness.</div>
+</body></html>`;
+
+        const blob = new Blob([html], {type:"text/html"});
+        const u = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = u; a.download = `${info.dealership.replace(/\s+/g,"_")}_Mystery_Shop_${info.date}.html`;
+        a.click(); setTimeout(() => URL.revokeObjectURL(u), 10000);
+      }, [info, checks, notes, attachments, sections, secRes, totalEarned, totalMax, overallPct, overallRt, gaps, strengths]);
+
+      return (
+        <div className="fade-in">
+          {/* Header row */}
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20,flexWrap:"wrap",gap:10}}>
+            <div>
+              <h2 style={{fontSize:24,fontWeight:800,margin:0}}>Evaluation Results</h2>
+              <p style={{color:tk.textWeak,margin:"4px 0 0",fontSize:13}}>{info.dealership} &middot; {info.shopType} &middot; {info.date}</p>
+            </div>
+            <div className="results-actions" style={{display:"flex",gap:8}}>
+              <button onClick={onEdit} style={{padding:"10px 18px",borderRadius:10,border:`1.5px solid ${tk.border}`,background:tk.white,color:tk.black,fontSize:12,fontWeight:600}}>&larr; Edit</button>
+              <button onClick={download} style={{padding:"10px 18px",borderRadius:10,background:`linear-gradient(135deg, ${tk.accent}, ${tk.teal})`,border:"none",color:"#fff",fontSize:12,fontWeight:700,display:"flex",alignItems:"center",gap:6,boxShadow:`0 3px 12px ${tk.accent}30`}}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                Download Report
+              </button>
+              <button onClick={onNew} style={{padding:"10px 18px",borderRadius:10,background:tk.black,border:"none",color:"#fff",fontSize:12,fontWeight:700}}>New Shop</button>
+            </div>
+          </div>
+
+          {/* ── Bento Grid ── */}
+          <div className="bento">
+            {/* Score Ring - tall card */}
+            <div className="card bento-tall scale-in" style={{padding:28,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",
+              background:"linear-gradient(160deg, #1a0533 0%, #3d1566 50%, #65299D 100%)",color:"#fff",borderRadius:20,border:"none"}}>
+              <div style={{fontSize:11,fontWeight:700,letterSpacing:"1.5px",textTransform:"uppercase",color:tk.accentLight,marginBottom:12}}>Mystery Shop Score</div>
+              <ScoreRing score={overallPct} size={180} strokeWidth={14}/>
+              <div style={{marginTop:12,fontSize:13,fontWeight:700,color:overallRt.color}}>{overallRt.icon} {overallRt.label} &mdash; {totalEarned}/{totalMax} pts</div>
+              <div style={{marginTop:8,fontSize:11,color:tk.accentLight,textAlign:"center"}}>
+                <span style={{color:tk.green}}>&ge;80%</span> Great &middot; <span style={{color:"#E67E22"}}>50-79%</span> Avg &middot; <span style={{color:tk.red}}>&lt;50%</span> Needs Work
+              </div>
+            </div>
+
+            {/* Strengths card */}
+            <div className="card card-interactive" style={{padding:20,borderTop:`4px solid ${tk.green}`}}>
+              <div style={{fontSize:13,fontWeight:700,color:tk.green,marginBottom:10}}>{"\u2713"} Strengths ({strengths.length})</div>
+              <div style={{maxHeight:200,overflowY:"auto"}}>
+                {strengths.length === 0 ? <div style={{color:tk.textWeaker,fontSize:12}}>No criteria met at full points.</div> :
+                  strengths.slice(0,6).map(c => (
+                    <div key={c.id} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 0",borderBottom:`1px solid ${tk.surface}`}}>
+                      <span style={{color:tk.green,fontSize:14}}>{"\u2713"}</span>
+                      <span style={{fontSize:12,color:tk.charcoal}}>{c.label}</span>
+                    </div>
+                  ))
+                }
+                {strengths.length > 6 && <div style={{fontSize:11,color:tk.textWeaker,marginTop:6}}>+{strengths.length-6} more in full report</div>}
+              </div>
+            </div>
+
+            {/* Gaps card */}
+            <div className="card card-interactive" style={{padding:20,borderTop:`4px solid ${tk.red}`}}>
+              <div style={{fontSize:13,fontWeight:700,color:tk.red,marginBottom:10}}>{"\u2717"} Critical Gaps ({gaps.length})</div>
+              <div style={{maxHeight:200,overflowY:"auto"}}>
+                {gaps.length === 0 ? <div style={{color:tk.green,fontSize:12,fontWeight:600}}>All criteria met!</div> :
+                  gaps.slice(0,6).map(c => (
+                    <div key={c.id} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 0",borderBottom:`1px solid ${tk.surface}`}}>
+                      <span style={{fontSize:11,fontWeight:800,color:tk.red,background:tk.redBg,padding:"2px 7px",borderRadius:8}}>+{c.pts-c.earned}</span>
+                      <span style={{fontSize:12,color:tk.charcoal,flex:1}}>{c.label}</span>
+                    </div>
+                  ))
+                }
+              </div>
+            </div>
+
+            {/* Section Breakdown - full width */}
+            <div className="card bento-full" style={{overflow:"hidden"}}>
+              <div style={{padding:"14px 20px",background:tk.black,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                <span style={{color:"#fff",fontWeight:800,fontSize:14,fontFamily:"DM Sans"}}>Section Breakdown</span>
+                <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                  <span style={{color:tk.accentLight,fontSize:12}}>{totalEarned}/{totalMax} pts</span>
+                  <span style={{color:overallRt.color,fontWeight:900,fontSize:16}}>{overallPct}%</span>
+                </div>
+              </div>
+              {secRes.map((s, i) => {
+                const rt = getRating(s.pct);
+                const isOpen = expanded[s.id];
+                return (
+                  <div key={s.id}>
+                    <div onClick={() => toggleExpand(s.id)}
+                      style={{padding:"14px 20px",background:i%2===0?tk.white:tk.surface,borderBottom:`1px solid ${tk.border}`,cursor:"pointer",
+                        display:"flex",justifyContent:"space-between",alignItems:"center",transition:"background 0.15s"}}>
+                      <div style={{display:"flex",alignItems:"center",gap:10}}>
+                        <span style={{fontSize:16}}>{s.icon}</span>
+                        <span style={{fontSize:13,fontWeight:600,color:tk.black}}>{s.label}</span>
+                      </div>
+                      <div style={{display:"flex",gap:10,alignItems:"center"}}>
+                        <span style={{fontSize:11,color:tk.textWeak}}>{s.earned}/{s.maxPts}</span>
+                        <div style={{width:80}}><Bar pct={s.pct} color={rt.color} height={5}/></div>
+                        <span style={{fontSize:13,fontWeight:800,color:rt.color,minWidth:36,textAlign:"right"}}>{s.pct}%</span>
+                        <span style={{fontSize:10,fontWeight:700,padding:"3px 10px",borderRadius:20,background:rt.bg,color:rt.color,minWidth:72,textAlign:"center"}}>{rt.icon} {rt.label}</span>
+                        <span style={{color:tk.textWeaker,fontSize:12,transition:"transform 0.2s",transform:isOpen?"rotate(180deg)":"rotate(0)"}}>{"\u25BC"}</span>
+                      </div>
+                    </div>
+                    <div className={`expandable ${isOpen?"open":""}`}>
+                      <div style={{padding:"8px 20px 12px",background:tk.surface}}>
+                        {s.criteria.map(c => {
+                          const earned = checks[c.id] ? c.pts : 0;
+                          return (
+                            <div key={c.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 0 6px 28px",borderBottom:`1px solid ${tk.border}`}}>
+                              <span style={{fontSize:12,color:tk.charcoal}}>{c.label}</span>
+                              <span style={{fontSize:12,fontWeight:700,color:earned>0?tk.green:tk.red}}>{earned}/{c.pts}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Opportunities - full width */}
+            <div className="card bento-full" style={{overflow:"hidden"}}>
+              <div style={{padding:"14px 20px",background:`linear-gradient(135deg, ${tk.accent}, ${tk.teal})`}}>
+                <div style={{color:"#fff",fontWeight:800,fontSize:14,fontFamily:"DM Sans"}}>Top Opportunities for Improvement</div>
+                <div style={{color:"rgba(255,255,255,0.75)",fontSize:11,marginTop:2}}>Ranked by point recovery potential with coaching recommendations</div>
+              </div>
+              {gaps.length === 0 ? (
+                <div style={{padding:24,textAlign:"center",color:tk.green,fontWeight:700,fontSize:14}}>{"\u2713"} All criteria met &mdash; excellent!</div>
+              ) : gaps.map((c, i) => (
+                <div key={c.id} style={{padding:"16px 20px",borderBottom:`1px solid ${tk.border}`,background:i%2===0?tk.white:tk.surface,transition:"background 0.15s"}}>
+                  <div style={{display:"flex",alignItems:"flex-start",gap:14}}>
+                    <div style={{width:28,height:28,borderRadius:"50%",background:`linear-gradient(135deg, ${tk.accent}, ${tk.teal})`,color:"#fff",fontSize:12,fontWeight:800,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>{i+1}</div>
+                    <div style={{flex:1}}>
+                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8}}>
+                        <span style={{fontSize:13,fontWeight:700,color:tk.black}}>{c.label}</span>
+                        <span style={{fontSize:12,fontWeight:800,color:tk.red,whiteSpace:"nowrap",background:tk.redBg,padding:"3px 10px",borderRadius:20}}>+{c.pts-c.earned} pt{(c.pts-c.earned)!==1?"s":""}</span>
+                      </div>
+                      <div style={{fontSize:12,color:tk.textWeak,marginTop:4,lineHeight:1.5,fontStyle:"italic"}}>{getRec(c.id)}</div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Attachments in results */}
+            {attachments.length > 0 && (
+              <div className="card bento-full" style={{padding:20}}>
+                <div style={{fontSize:13,fontWeight:700,color:tk.black,marginBottom:12}}>Response Attachments ({attachments.length})</div>
+                <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill, minmax(180px, 1fr))",gap:12}}>
+                  {attachments.map((a, i) => (
+                    <div key={i} className="card card-interactive" style={{overflow:"hidden"}}>
+                      {a.type?.startsWith("image/") ? (
+                        <img src={a.data} alt={a.name} style={{width:"100%",height:120,objectFit:"cover",display:"block"}}/>
+                      ) : (
+                        <div style={{height:120,background:tk.surface,display:"flex",alignItems:"center",justifyContent:"center",fontSize:32}}>{"\uD83D\uDCCE"}</div>
+                      )}
+                      <div style={{padding:"8px 10px",fontSize:11,color:tk.textWeak,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{a.name}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Notes */}
+            {notes && (
+              <div className="card bento-full" style={{padding:20,borderLeft:`4px solid ${tk.accent}`}}>
+                <div style={{fontSize:11,fontWeight:700,color:tk.accent,textTransform:"uppercase",letterSpacing:"1px",marginBottom:8}}>Auditor Notes &mdash; {info.auditor}</div>
+                <p style={{margin:0,fontSize:13,lineHeight:1.7,color:tk.charcoal}}>{notes}</p>
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    /* ── Main App ── */
+    function App() {
+      const saved = useMemo(() => loadState(), []);
+      const [step, setStep] = useState(saved?.step || "info");
+      const [info, setInfo] = useState(saved?.info || { dealership:"", auditor:"", date:new Date().toLocaleDateString("en-CA"), repName:"", shopType:"Internet Lead" });
+      const [checks, setChecks] = useState(saved?.checks || {});
+      const [notes, setNotes] = useState(saved?.notes || "");
+      const [active, setActive] = useState(saved?.active || 0);
+      const [attachments, setAttachments] = useState(saved?.attachments || []);
+      const [tried, setTried] = useState(false);
+      const [showRestored, setShowRestored] = useState(!!saved);
+
+      useEffect(() => { persist({ step, info, checks, notes, active, attachments }); }, [step, info, checks, notes, active, attachments]);
+      useEffect(() => { if (showRestored) { const t=setTimeout(()=>setShowRestored(false),3000); return ()=>clearTimeout(t); } }, [showRestored]);
+
+      const sections = useMemo(() => getSections(info.shopType), [info.shopType]);
+      const totalMax = useMemo(() => sections.reduce((a,s) => a+s.maxPts, 0), [sections]);
+      const calcSec = useCallback((sec) => { let e=0; sec.criteria.forEach(c=>{if(checks[c.id])e+=c.pts;}); e=Math.min(e,sec.maxPts); return {earned:e,pct:sec.maxPts>0?Math.round((e/sec.maxPts)*100):0}; }, [checks]);
+      const secRes = useMemo(() => sections.map(s => ({...s,...calcSec(s)})), [sections, calcSec]);
+      const totalEarned = useMemo(() => secRes.reduce((a,s) => a+s.earned, 0), [secRes]);
+      const overallPct = useMemo(() => totalMax>0?Math.round((totalEarned/totalMax)*100):0, [totalEarned, totalMax]);
+      const overallRt = useMemo(() => getRating(overallPct), [overallPct]);
+      const infoOk = info.dealership && info.auditor && info.date;
+
+      const STEPS = ["info","shop","results"];
+      const LABELS = ["Shop Info","Evaluation","Results"];
+      const stepIdx = STEPS.indexOf(step);
+
+      return (
+        <div style={{minHeight:"100vh",background:tk.surface}}>
+          {/* ── Sticky Header ── */}
+          <header className="app-header" style={{background:tk.black,position:"sticky",top:0,zIndex:100,boxShadow:"0 2px 12px rgba(0,0,0,0.15)"}}>
+            {/* Gradient accent bar */}
+            <div className="accent-gradient" style={{height:3}}/>
+            <div className="app-header-inner" style={{maxWidth:920,margin:"0 auto",padding:"14px 28px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+              <div style={{display:"flex",alignItems:"center",gap:14}}>
+                <CarsLogo color="#fff" height={24}/>
+                <div style={{width:1,height:24,background:"#3D4846",margin:"0 4px"}}/>
+                <span style={{color:tk.accentLight,fontSize:11,fontWeight:600,letterSpacing:"1.5px",textTransform:"uppercase"}}>Mystery Shop</span>
+              </div>
+
+              {/* Desktop stepper */}
+              <nav className="stepper-desktop" style={{display:"flex",gap:6,alignItems:"center"}} aria-label="Progress">
+                {STEPS.map((s, i) => (
+                  <div key={s} style={{display:"flex",alignItems:"center",gap:6}}>
+                    <button onClick={() => { if(i<stepIdx) setStep(STEPS[i]); else if(i===1 && infoOk) setStep("shop"); }}
+                      disabled={i > stepIdx && !(i===1 && infoOk)}
+                      aria-current={step===s?"step":undefined}
+                      style={{width:28,height:28,borderRadius:"50%",border:"none",
+                        background:step===s?tk.accent:(stepIdx>i?tk.green:"#3D4846"),color:"#fff",fontSize:11,fontWeight:700,
+                        display:"flex",alignItems:"center",justifyContent:"center",
+                        boxShadow:step===s?`0 0 0 3px ${tk.accent}40`:"none"}}>
+                      {stepIdx>i?"\u2713":i+1}
+                    </button>
+                    <span style={{color:step===s?"#fff":"#859391",fontSize:11,fontWeight:step===s?700:400}}>{LABELS[i]}</span>
+                    {i<2 && <span style={{color:"#3D4846",fontSize:12,margin:"0 4px"}}>/</span>}
+                  </div>
+                ))}
+              </nav>
+              <div className="stepper-mobile" style={{color:tk.accentLight,fontSize:12,fontWeight:600}}>Step {stepIdx+1}/3</div>
+
+              {showRestored && <div className="saved-badge" style={{color:tk.green,fontSize:11,fontWeight:600}}>Session restored</div>}
+            </div>
+          </header>
+
+          {/* ── Main ── */}
+          <main style={{maxWidth:920,margin:"0 auto",padding:"28px 28px 60px"}}>
+            {step==="info" && <InfoForm info={info} setInfo={setInfo} tried={tried}
+              onNext={() => { if(!infoOk){setTried(true);return;} setTried(false); setStep("shop"); }}/>}
+            {step==="shop" && <EvalPanel info={info} sections={sections} checks={checks} setChecks={setChecks}
+              notes={notes} setNotes={setNotes} attachments={attachments} setAttachments={setAttachments}
+              active={active} setActive={setActive} overallPct={overallPct} overallRt={overallRt} calcSec={calcSec}
+              onResults={() => setStep("results")}/>}
+            {step==="results" && <Results info={info} sections={sections} checks={checks} notes={notes} attachments={attachments}
+              secRes={secRes} totalEarned={totalEarned} totalMax={totalMax} overallPct={overallPct} overallRt={overallRt}
+              onEdit={() => setStep("shop")}
+              onNew={() => { if(!window.confirm("Start new evaluation? All data will be cleared.")) return; clearStore(); setChecks({}); setInfo({dealership:"",auditor:"",date:new Date().toLocaleDateString("en-CA"),repName:"",shopType:"Internet Lead"}); setNotes(""); setAttachments([]); setStep("info"); setActive(0); }}/>}
+          </main>
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+  </script>
+</body>
+</html>
