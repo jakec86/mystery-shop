@@ -355,7 +355,8 @@
     }
 
     /* ── Financial Impact Model ── */
-    // Sources: Pied Piper PSI 2025, DAS Technology NADA 2025, Foureyes 2025 Benchmarks
+    // Sources: Pied Piper PSI/ILE 2026 (+ 2026 Dealer Group ILE study), DAS Technology NADA 2025, Foureyes 2025 Benchmarks
+    // - "Turbo Speed" (phone AND text/email answered within 15 min): industry avg 31%, top groups 80%+ (Pied Piper 2026 Dealer Group ILE)
     // - 78% of buyers purchase from the first dealer to respond (DAS Tech)
     // - 61% of dealers respond within 15 min; 19% take >1 hour (DAS Tech)
     // - Internet lead appointment-set rate: 40% (Foureyes Q1 2025)
@@ -375,6 +376,14 @@
       if (textSelected === "r8" || textSelected === "r9") {
         insights.push({ icon:"\uD83D\uDCF1", text:"Text response >15 min \u2014 only 38% of dealers who text actually answer the customer's question (Pied Piper 2025). 82% of consumers expect a response within 10 minutes.", severity:"high" });
       }
+      // "Turbo Speed" \u2014 Pied Piper 2026 Dealer Group ILE Study: answering the customer's
+      // question by phone AND text/email within 15 min (industry avg 31%, top groups 80%+).
+      const phoneWithin15 = checks["r1"] || checks["r2"];
+      const fastTextOrEmail = checks["r5"] || checks["r6"] || checks["r7"] || checks["r10"];
+      const turboSpeed = phoneWithin15 && fastTextOrEmail;
+      if (phoneSelected && !turboSpeed) {
+        insights.push({ icon:"\u26A1", text:"Missed \u201CTurbo Speed\u201D \u2014 the top responsiveness signal is answering by phone AND text/email within 15 min. Industry average is just 31%; top dealer groups exceed 80% (Pied Piper 2026 Dealer Group ILE Study).", severity:"medium" });
+      }
       if (!checks["eng1"] && !checks["eng2"] && !checks["eng3"]) {
         insights.push({ icon:"\uD83C\uDFAF", text:"No appointment ask in any channel \u2014 industry avg internet lead appointment-set rate is 40%; without an ask, conversion drops dramatically (Foureyes 2025)", severity:"critical" });
       }
@@ -389,10 +398,12 @@
       return insights;
     }
 
-    /* ── Benchmark Data (Pied Piper PSI 2025 + DAS Technology NADA 2025) ── */
+    /* ── Benchmark Data (Pied Piper PSI 2026 ILE Industry Study + DAS Technology NADA 2025) ──
+       2026 PSI Internet Lead Effectiveness study (15th annual, 3,290 dealer websites):
+       industry avg 71/100 (+6 pts YoY); highest-ranked brand Infiniti 82/100. Subaru now ~#5. */
     const BENCHMARKS = {
-      national: { avg: 65, great: 80, label: "National Avg \u2014 Pied Piper 2025" },
-      topBrand: { avg: 77, great: 90, label: "Top Brand (Subaru) \u2014 PSI 2025" },
+      national: { avg: 71, great: 80, label: "National Avg \u2014 Pied Piper 2026" },
+      topBrand: { avg: 82, great: 90, label: "Top Brand (Infiniti) \u2014 PSI 2026" },
     };
 
     /* ── Sparkline Component ── */

@@ -11,7 +11,7 @@ Interactive web tool for evaluating dealer lead response quality across phone, t
 - **N/A Toggle** on any criterion to remove it from the scoring denominator
 - **Real-Time Live Score** updates as criteria are checked
 - **Bento Grid Results Dashboard** with animated score ring, expandable section breakdown, and ranked coaching recommendations
-- **Industry Benchmarks** calibrated against Pied Piper PSI 2025 (national avg: 65) and top brand scores
+- **Industry Benchmarks** calibrated against Pied Piper PSI 2026 (national avg: 71) and top brand scores
 - **Financial Impact Estimates** citing DAS Technology NADA 2025 and Foureyes 2025 data
 - **Trend Tracking** with sparkline visualization across multiple shops per dealership
 - **PDF Report Download** with infographic-style cover, bar chart scorecard, strengths/gaps analysis, and embedded response attachments
@@ -38,7 +38,7 @@ Rating tiers: **Great** (80%+) | **Average** (50-79%) | **Needs Work** (<50%)
 
 ## Benchmark Sources
 
-- [Pied Piper PSI 2025](https://www.piedpiperpsi.com/psi/) — National ILE average: 65, Top brand (Subaru): 77
+- [Pied Piper PSI 2026 ILE Study](https://www.piedpiperpsi.com/press/) — National ILE average: 71 (+6 pts YoY, 15th annual, 3,290 dealer websites), Top brand (Infiniti): 82
 - [DAS Technology NADA 2025](https://dastechnology.com/) — 61% respond within 15 min, 78% of buyers purchase from first responder
 - [Foureyes 2025 Benchmarks](https://foureyes.io/resources/2025-automotive-dealer-benchmarks-report) — 40% internet lead appointment-set rate, 43.2% of leads mishandled
 
